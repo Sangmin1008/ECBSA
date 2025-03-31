@@ -23,7 +23,7 @@ void ecc_free(ECC* ecc) {
 int64_t generate_random_private_key(int64_t p) {
     static int seeded = 0;
     if (!seeded) {
-        srand(time(NULL));  // 시드 초기화 (한 번만 실행)
+        srand(time(NULL));
         seeded = 1;
     }
     return 1 + (rand() % (p - 1));
