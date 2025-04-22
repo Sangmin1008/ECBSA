@@ -29,4 +29,5 @@ bool elliptic_curve_is_on_curve(const Elliptic_Curve* curve, const Point* P);
 Point elliptic_curve_map_message_to_point(const Elliptic_Curve* curve, const char* message, size_t len);
 char* elliptic_curve_map_point_to_message(const Elliptic_Curve* curve, const Point* P, size_t original_length);
 
+void point_free(Point *p);
 #endif // ECC_CAPSTONE_ELLIPTIC_CURVE_H

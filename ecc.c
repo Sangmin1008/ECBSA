@@ -97,3 +97,8 @@ Point ecc_decrypt(ECC* ecc, const Ciphertext* ciphertext, const mpz_t private_ke
     return result;
 }
 
+void key_free(Key *key) {
+    mpz_clear(key->private_key);
+    mpz_clear(key->public_key.x);
+    mpz_clear(key->public_key.y);
+}

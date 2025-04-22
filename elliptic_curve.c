@@ -10,9 +10,9 @@ Elliptic_Curve* elliptic_curve_new(const mpz_t a, const mpz_t b, const mpz_t p) 
     if (!curve) return NULL;
 
     mpz_init(curve->a); mpz_init(curve->b); mpz_init(curve->p);
-    mpz_set_str(curve->a, a, 10);
-    mpz_set_str(curve->b, b, 10);
-    mpz_set_str(curve->p, p, 10);
+    mpz_set(curve->a, a, 10);
+    mpz_set(curve->b, b, 10);
+    mpz_set(curve->p, p, 10);
 
     if (!elliptic_curve_is_valid_curve(curve)) {
         fprintf(stderr, "Wrong Elliptic Curve\n");
@@ -34,7 +34,7 @@ static void mod(mpz_t result, const mpz_t x, const mpz_t p) {
 }
 
 static void mod_inv(mpz_t result, const mpz_t x, const mpz_t p) {
-    if (mpz_invert(result, x, p) == 0) { // ì{
+    if (mpz_invert(result, x, p) == 0) { // ï¿½{
         fprintf(stderr, "There is not mod_inv\n");
         mpz_set_ui(result, 0);
     }
@@ -64,8 +64,8 @@ bool elliptic_curve_is_valid_curve(const Elliptic_Curve* curve) {
 Point point_new(const mpz_t x, const mpz_t y) {
     Point p;
     mpz_init(p.x); mpz_init(p.y);
-    mpz_set_str(p.x, x, 10);
-    mpz_set_str(p.y, y, 10);
+    mpz_set(p.x, x, 10);
+    mpz_set(p.y, y, 10);
     p.is_infinity = false;
     return p;
 }
@@ -86,15 +86,19 @@ bool point_equals(const Point* p1, const Point* p2) {
 
 Point elliptic_curve_add(const Elliptic_Curve* curve, const Point* P, const Point* Q) {
     if (P->is_infinity) {
-        Point result = point_new("0", "0");
+        mpz_t zero; mpz_init_set_ui(zero, 0);
+        Point result = point_new(zero, zero);
         mpz_set(result.x, Q->x); mpz_set(result.y, Q->y);
         result.is_infinity = Q->is_infinity;
+        mpz_clear(zero);
         return result;
     }
     if (Q->is_infinity) {
-        Point result = point_new("0", "0");
+        mpz_t zero; mpz_init_set_ui(zero, 0);
+        Point result = point_new(zero, zero);
         mpz_set(result.x, P->x); mpz_set(result.y, P->y);
         result.is_infinity = P->is_infinity;
+        mpz_clear(zero);
         return result;
     }
 
@@ -133,18 +137,22 @@ Point elliptic_curve_add(const Elliptic_Curve* curve, const Point* P, const Poin
     mpz_sub(y3, y3, P->y);
     mod(y3, y3, curve->p);
 
-    Point result = point_new("0", "0");
+    mpz_t zero; mpz_init_set_ui(zero, 0);
+    Point result = point_new(zero, zero);
     mpz_set(result.x, x3); mpz_set(result.y, y3);
 
     mpz_clear(lambda); mpz_clear(temp1); mpz_clear(temp2); mpz_clear(x3); mpz_clear(y3);
+    mpz_clear(zero);
     return result;
 }
 
 Point elliptic_curve_scalar_multiply(const Elliptic_Curve* curve, const Point* P, const mpz_t k) {
     Point R0 = point_infinity();
-    Point R1 = point_new("0", "0");
+    mpz_t zero; mpz_init_set_ui(zero, 0);
+    Point R1 = point_new(zero, zero);
     mpz_set(R1.x, P->x); mpz_set(R1.y, P->y);
     R1.is_infinity = P->is_infinity;
+    mpz_clear(zero);
 
     mpz_t temp_k;
     mpz_init(temp_k);
@@ -392,4 +400,9 @@ char* elliptic_curve_map_point_to_message(const Elliptic_Curve* curve, const Poi
     mpz_clear(temp_N); mpz_clear(digit); mpz_clear(ten);
     for (int i = 0; i < factor_count; i++) mpz_clear(factors[i]);
     return result;
+}
+
+void point_free(Point *p) {
+    mpz_clear(p->x);
+    mpz_clear(p->y);
 }
