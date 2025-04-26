@@ -1,15 +1,18 @@
 #include "ecc.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <gmp.h>
+#include <C:\msys64\gmp-6.3.0\include\gmp.h>
+#include <time.h>
 
 ECC* ecc_new(Elliptic_Curve* curve, const Point* G) {
     ECC* ecc = (ECC*)malloc(sizeof(ECC));
     if (!ecc) return NULL;
     ecc->curve = curve;
-    ecc->G = point_new("0", "0");
+    mpz_t zero; mpz_init_set_ui(zero, 0);
+    ecc->G = point_new(zero, zero);
     mpz_set(ecc->G.x, G->x); mpz_set(ecc->G.y, G->y);
     ecc->G.is_infinity = G->is_infinity;
+    mpz_clear(zero);
     if (!elliptic_curve_is_on_curve(curve, &ecc->G)) {
         fprintf(stderr, "Point G is not on the curve\n");
         ecc_free(ecc);
@@ -28,7 +31,7 @@ void ecc_free(ECC* ecc) {
 static void generate_random_private_key(mpz_t result, const mpz_t p) {
     gmp_randstate_t state;
     gmp_randinit_default(state);
-    gmp_randseed_ui(state, rand());
+    gmp_randseed_ui(state, time(NULL));
 
     mpz_t one;
     mpz_init_set_ui(one, 1);
@@ -71,18 +74,19 @@ Ciphertext ecc_encrypt(ECC* ecc, const Point* message, const Point* public_key) 
 }
 
 Point ecc_decrypt(ECC* ecc, const Ciphertext* ciphertext, const mpz_t private_key) {
-    Point P1 = point_new("0", "0");
+    mpz_t zero; mpz_init_set_ui(zero, 0);
+    Point P1 = point_new(zero, zero);
     mpz_set(P1.x, ciphertext->P1.x); mpz_set(P1.y, ciphertext->P1.y);
     P1.is_infinity = ciphertext->P1.is_infinity;
 
-    Point P2 = point_new("0", "0");
+    Point P2 = point_new(zero, zero);
     mpz_set(P2.x, ciphertext->P2.x); mpz_set(P2.y, ciphertext->P2.y);
     P2.is_infinity = ciphertext->P2.is_infinity;
 
     mpz_t neg_y;
     mpz_init(neg_y);
     mpz_sub(neg_y, ecc->curve->p, P1.y);
-    Point neg_P1 = point_new("0", "0");
+    Point neg_P1 = point_new(zero, zero);
     mpz_set(neg_P1.x, P1.x); mpz_set(neg_P1.y, neg_y);
     neg_P1.is_infinity = P1.is_infinity;
 
@@ -94,6 +98,7 @@ Point ecc_decrypt(ECC* ecc, const Ciphertext* ciphertext, const mpz_t private_ke
     mpz_clear(P2.x); mpz_clear(P2.y);
     mpz_clear(neg_P1.x); mpz_clear(neg_P1.y);
     mpz_clear(temp.x); mpz_clear(temp.y);
+    mpz_clear(zero);
     return result;
 }
 

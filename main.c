@@ -1,9 +1,12 @@
 #include <stdio.h>
-#include <gmp.h>
+#include <time.h>
+#include <C:\msys64\gmp-6.3.0\include\gmp.h>
+#include <stdlib.h>
 #include "elliptic_curve.h"
 #include "ecc.h"
 
 int main() {
+    srand(time(NULL));
     mpz_t prime, a, b, x, y;
     mpz_init_set_ui(prime, 97);
     mpz_init_set_ui(a, 2);
