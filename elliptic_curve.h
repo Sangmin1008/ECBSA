@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <C:\msys64\gmp-6.3.0\include\gmp.h>
+#include <gmp.h>
 
 typedef struct {
     mpz_t a, b, p;

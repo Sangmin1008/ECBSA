@@ -1,17 +1,20 @@
 #include "ecc.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <C:\msys64\gmp-6.3.0\include\gmp.h>
+#include <gmp.h>
 #include <time.h>
 
 ECC* ecc_new(Elliptic_Curve* curve, const Point* G) {
-    ECC* ecc = (ECC*)malloc(sizeof(ECC));
+    ECC* ecc = malloc(sizeof(ECC));
     if (!ecc) return NULL;
     ecc->curve = curve;
-    mpz_t zero; mpz_init_set_ui(zero, 0);
+    mpz_t zero;
+    mpz_init(zero);
+    mpz_set_str(zero, "0", 10);
     ecc->G = point_new(zero, zero);
-    mpz_set(ecc->G.x, G->x); mpz_set(ecc->G.y, G->y);
     ecc->G.is_infinity = G->is_infinity;
+    mpz_set(ecc->G.x, G->x);
+    mpz_set(ecc->G.y, G->y);
     mpz_clear(zero);
     if (!elliptic_curve_is_on_curve(curve, &ecc->G)) {
         fprintf(stderr, "Point G is not on the curve\n");
@@ -23,7 +26,7 @@ ECC* ecc_new(Elliptic_Curve* curve, const Point* G) {
 
 void ecc_free(ECC* ecc) {
     if (ecc) {
-        mpz_clear(ecc->G.x); mpz_clear(ecc->G.y);
+        point_free(&ecc->G);
         free(ecc);
     }
 }
@@ -31,23 +34,27 @@ void ecc_free(ECC* ecc) {
 static void generate_random_private_key(mpz_t result, const mpz_t p) {
     gmp_randstate_t state;
     gmp_randinit_default(state);
-    gmp_randseed_ui(state, time(NULL));
+    gmp_randseed_ui(state, (unsigned long)time(NULL));
 
     mpz_t one;
-    mpz_init_set_ui(one, 1);
+    mpz_init(one);
+    mpz_set_str(one, "1", 10);
     mpz_sub(result, p, one);
     mpz_urandomm(result, state, result);
     mpz_add(result, result, one);
 
     mpz_clear(one);
     gmp_randclear(state);
+
 }
 
 Key ecc_generate_key(ECC* ecc) {
     Key key;
     mpz_init(key.private_key);
-    generate_random_private_key(key.private_key, ecc->curve->p);
-    key.public_key = elliptic_curve_scalar_multiply(ecc->curve, &ecc->G, key.private_key);
+    do {
+        generate_random_private_key(key.private_key, ecc->curve->p);
+        key.public_key = elliptic_curve_scalar_multiply(ecc->curve, &ecc->G, key.private_key);
+    } while (!elliptic_curve_is_on_curve(ecc->curve, &key.public_key));
     return key;
 }
 
@@ -68,42 +75,49 @@ Ciphertext ecc_encrypt(ECC* ecc, const Point* message, const Point* public_key) 
     Point temp = elliptic_curve_scalar_multiply(ecc->curve, public_key, random_k);
     Point P2 = elliptic_curve_add(ecc->curve, message, &temp);
 
-    mpz_clear(temp.x); mpz_clear(temp.y);
+    point_free(&temp);
     mpz_clear(random_k);
     return (Ciphertext){P1, P2};
+
 }
 
 Point ecc_decrypt(ECC* ecc, const Ciphertext* ciphertext, const mpz_t private_key) {
-    mpz_t zero; mpz_init_set_ui(zero, 0);
+    mpz_t zero;
+    mpz_init(zero);
+    mpz_set_str(zero, "0", 10);
+
     Point P1 = point_new(zero, zero);
-    mpz_set(P1.x, ciphertext->P1.x); mpz_set(P1.y, ciphertext->P1.y);
     P1.is_infinity = ciphertext->P1.is_infinity;
+    mpz_set(P1.x, ciphertext->P1.x);
+    mpz_set(P1.y, ciphertext->P1.y);
 
     Point P2 = point_new(zero, zero);
-    mpz_set(P2.x, ciphertext->P2.x); mpz_set(P2.y, ciphertext->P2.y);
     P2.is_infinity = ciphertext->P2.is_infinity;
+    mpz_set(P2.x, ciphertext->P2.x);
+    mpz_set(P2.y, ciphertext->P2.y);
+
+    mpz_clear(zero);
 
     mpz_t neg_y;
     mpz_init(neg_y);
     mpz_sub(neg_y, ecc->curve->p, P1.y);
-    Point neg_P1 = point_new(zero, zero);
-    mpz_set(neg_P1.x, P1.x); mpz_set(neg_P1.y, neg_y);
+    Point neg_P1 = point_new(P1.x, neg_y);
     neg_P1.is_infinity = P1.is_infinity;
 
     Point temp = elliptic_curve_scalar_multiply(ecc->curve, &neg_P1, private_key);
     Point result = elliptic_curve_add(ecc->curve, &P2, &temp);
 
+    point_free(&neg_P1);
+    point_free(&temp);
+    point_free(&P1);
+    point_free(&P2);
     mpz_clear(neg_y);
-    mpz_clear(P1.x); mpz_clear(P1.y);
-    mpz_clear(P2.x); mpz_clear(P2.y);
-    mpz_clear(neg_P1.x); mpz_clear(neg_P1.y);
-    mpz_clear(temp.x); mpz_clear(temp.y);
-    mpz_clear(zero);
+
     return result;
+
 }
 
 void key_free(Key *key) {
     mpz_clear(key->private_key);
-    mpz_clear(key->public_key.x);
-    mpz_clear(key->public_key.y);
+    point_free(&key->public_key);
 }

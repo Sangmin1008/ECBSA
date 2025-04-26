@@ -222,6 +222,9 @@ ECBSA_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 ECBSA_SOURCE_DIR:STATIC=C:/Users/dkdha/CLionProjects/ECBSA
 
+//Path to a library.
+GMP_LIBRARY:FILEPATH=C:/msys64/gmp-6.3.0/lib/libgmp.a
+
 
 ########################
 # INTERNAL cache entries
