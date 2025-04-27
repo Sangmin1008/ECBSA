@@ -1,7 +1,4 @@
 #include "ecc.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <gmp.h>
 #include <time.h>
 
 ECC* ecc_new(Elliptic_Curve* curve, const Point* G) {

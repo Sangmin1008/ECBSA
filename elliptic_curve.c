@@ -1,7 +1,5 @@
 #include "elliptic_curve.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <C:\msys64\gmp-6.3.0\include\gmp.h>
+
 
 Elliptic_Curve* elliptic_curve_new(const mpz_t a, const mpz_t b, const mpz_t p) {
     Elliptic_Curve* curve = malloc(sizeof(Elliptic_Curve));

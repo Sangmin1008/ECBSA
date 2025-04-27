@@ -1,7 +1,4 @@
-#include <stdio.h>
 #include <time.h>
-#include <gmp.h>
-#include <stdlib.h>
 #include "elliptic_curve.h"
 #include "ecc.h"
 
@@ -35,9 +32,9 @@ int main() {
     Key key = ecc_generate_key(ecc);
 
     mpz_init(mx);
-    mpz_set_str(mx, "10", 10);
     mpz_init(my);
-    mpz_set_str(my, "20", 10);
+    printf("Enter Message (mx, my): ");
+    gmp_scanf("%Zd %Zd", mx, my);
     Point message = point_new(mx, my);
 
     gmp_printf("public_key = (%Zd, %Zd)\n", key.public_key.x, key.public_key.y);
