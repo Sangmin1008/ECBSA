@@ -107,3 +107,5 @@ lib/*
 bin/*
 test/test_runner
 
+cmake-build-debug/
+.idea/
