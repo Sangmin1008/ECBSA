@@ -17,5 +17,7 @@ add_executable(ECBSA main.c
         elliptic_curve.h
         ecc.c
         ecc.h
+        ecbsa.h
+        ecbsa.c
 )
 target_link_libraries(ECBSA gmp)
