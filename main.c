@@ -91,7 +91,7 @@ int main() {
     printf("S-box generated\n\n");
 
     // Encryption (Sender)
-    const char* msg = "Hello, World!";
+    const char* msg = "Hello, World! Hello, Pusan University!";
     size_t msg_len = strlen(msg);
     size_t block_size = ECBSA_BLOCK_SIZE;
     size_t padded_len = ((msg_len + block_size - 1) / block_size) * block_size;
