@@ -30,7 +30,7 @@ void ecc_free(ECC* ecc) {
 }
 
 void generate_random_private_key(mpz_t result, const mpz_t p) {
-    unsigned char buf[32];  // 256비트 난수
+    unsigned char buf[32];
     if (RAND_bytes(buf, sizeof(buf)) != 1) {
         fprintf(stderr, "Error generating random bytes\n");
         exit(1);
@@ -38,7 +38,7 @@ void generate_random_private_key(mpz_t result, const mpz_t p) {
     mpz_import(result, sizeof(buf), 1, sizeof(buf[0]), 0, 0, buf);
     mpz_mod(result, result, p);
     if (mpz_cmp_ui(result, 0) == 0) {
-        mpz_set_ui(result, 1);  // 0이면 1로 설정
+        mpz_set_ui(result, 1);
     }
 }
 
