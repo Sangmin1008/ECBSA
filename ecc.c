@@ -1,5 +1,6 @@
 #include "ecc.h"
 #include <time.h>
+#include <openssl/rand.h>
 
 ECC* ecc_new(Elliptic_Curve* curve, const Point* G) {
     ECC* ecc = malloc(sizeof(ECC));
@@ -28,21 +29,17 @@ void ecc_free(ECC* ecc) {
     }
 }
 
-static void generate_random_private_key(mpz_t result, const mpz_t p) {
-    gmp_randstate_t state;
-    gmp_randinit_default(state);
-    gmp_randseed_ui(state, (unsigned long)time(NULL));
-
-    mpz_t one;
-    mpz_init(one);
-    mpz_set_str(one, "1", 10);
-    mpz_sub(result, p, one);
-    mpz_urandomm(result, state, result);
-    mpz_add(result, result, one);
-
-    mpz_clear(one);
-    gmp_randclear(state);
-
+void generate_random_private_key(mpz_t result, const mpz_t p) {
+    unsigned char buf[32];  // 256비트 난수
+    if (RAND_bytes(buf, sizeof(buf)) != 1) {
+        fprintf(stderr, "Error generating random bytes\n");
+        exit(1);
+    }
+    mpz_import(result, sizeof(buf), 1, sizeof(buf[0]), 0, 0, buf);
+    mpz_mod(result, result, p);
+    if (mpz_cmp_ui(result, 0) == 0) {
+        mpz_set_ui(result, 1);  // 0이면 1로 설정
+    }
 }
 
 Key ecc_generate_key(ECC* ecc) {

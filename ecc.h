@@ -20,6 +20,7 @@ typedef struct {
 
 ECC* ecc_new(Elliptic_Curve* curve, const Point* G);
 void ecc_free(ECC* ecc);
+void generate_random_private_key(mpz_t result, const mpz_t p);
 Key ecc_generate_key(ECC* ecc);
 Ciphertext ecc_encrypt(ECC* ecc, const Point* message, const Point* public_key);
 Point ecc_decrypt(ECC* ecc, const Ciphertext* ciphertext, const mpz_t private_key); // private_key도 mpz_t로

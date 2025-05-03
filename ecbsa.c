@@ -2,6 +2,7 @@
 #include <string.h>
 #include <time.h>
 #include <gmp.h>
+#include <openssl/sha.h>
 #include "ecbsa.h"
 
 void add_padding(uint8_t* data, size_t len, size_t block_size) {
@@ -34,8 +35,8 @@ void ecbsa_generate_sbox(ECC* ecc, uint8_t sbox[256]) {
     free(x_str);
     srand(seed);
 
-    for (int i = 0; i < 256; ++i) sbox[i] = i;
-    for (int i = 255; i > 0; --i) {
+    for (int i = 0; i < 256; i++) sbox[i] = i;
+    for (int i = 255; i > 0; i--) {
         int j = rand() % (i + 1);
         uint8_t temp = sbox[i];
         sbox[i] = sbox[j];
@@ -48,11 +49,11 @@ void ecbsa_generate_sbox(ECC* ecc, uint8_t sbox[256]) {
 }
 
 void ecbsa_generate_inv_sbox(const uint8_t sbox[256], uint8_t inv_sbox[256]) {
-    for (int i = 0; i < 256; ++i) inv_sbox[i] = 0;
-    for (int i = 0; i < 256; ++i) inv_sbox[sbox[i]] = (uint8_t)i;
+    for (int i = 0; i < 256; i++) inv_sbox[i] = 0;
+    for (int i = 0; i < 256; i++) inv_sbox[sbox[i]] = (uint8_t)i;
 }
 
-void ecbsa_key_schedule(ECC* ecc, const mpz_t d, uint8_t round_keys[ECBSA_ROUNDS+1][ECBSA_BLOCK_SIZE]) {
+void ecbsa_key_schedule(ECC* ecc, const mpz_t d, uint8_t round_keys[ECBSA_ROUNDS + 1][ECBSA_BLOCK_SIZE]) {
     mpz_t dr;
     mpz_init(dr);
     for (int r = 0; r <= ECBSA_ROUNDS; ++r) {
@@ -61,8 +62,8 @@ void ecbsa_key_schedule(ECC* ecc, const mpz_t d, uint8_t round_keys[ECBSA_ROUNDS
         Point R = elliptic_curve_scalar_multiply(ecc->curve, &ecc->G, dr);
         mpz_t tmp;
         mpz_init_set(tmp, R.x);
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i) {
-            round_keys[r][ECBSA_BLOCK_SIZE-1-i] = (uint8_t) mpz_fdiv_ui(tmp, 256);
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++) {
+            round_keys[r][ECBSA_BLOCK_SIZE - 1 - i] = (uint8_t) mpz_fdiv_ui(tmp, 256);
             mpz_fdiv_q_ui(tmp, tmp, 256);
         }
         point_free(&R);
@@ -92,21 +93,21 @@ void ecbsa_encrypt_block(ECC* ecc, const mpz_t d,
                          const uint8_t sbox[256],
                          const uint8_t in[ECBSA_BLOCK_SIZE],
                          uint8_t out[ECBSA_BLOCK_SIZE]) {
-    uint8_t round_keys[ECBSA_ROUNDS+1][ECBSA_BLOCK_SIZE];
+    uint8_t round_keys[ECBSA_ROUNDS + 1][ECBSA_BLOCK_SIZE];
     ecbsa_key_schedule(ecc, d, round_keys);
 
     uint8_t state[ECBSA_BLOCK_SIZE];
     memcpy(state, in, ECBSA_BLOCK_SIZE);
 
-    for (int r = 0; r < ECBSA_ROUNDS; ++r) {
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int r = 0; r < ECBSA_ROUNDS; r++) {
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] = sbox[state[i]];
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] ^= round_keys[r][i];
     }
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] = sbox[state[i]];
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] ^= round_keys[ECBSA_ROUNDS][i];
 
     memcpy(out, state, ECBSA_BLOCK_SIZE);
@@ -130,23 +131,32 @@ void ecbsa_decrypt_block(ECC* ecc, const mpz_t d,
                          const uint8_t in[ECBSA_BLOCK_SIZE],
                          uint8_t out[ECBSA_BLOCK_SIZE]) {
     uint8_t inv_sbox[256];
-    uint8_t round_keys[ECBSA_ROUNDS+1][ECBSA_BLOCK_SIZE];
+    uint8_t round_keys[ECBSA_ROUNDS + 1][ECBSA_BLOCK_SIZE];
     ecbsa_generate_inv_sbox(sbox, inv_sbox);
     ecbsa_key_schedule(ecc, d, round_keys);
 
     uint8_t state[ECBSA_BLOCK_SIZE];
     memcpy(state, in, ECBSA_BLOCK_SIZE);
 
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] ^= round_keys[ECBSA_ROUNDS][i];
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] = inv_sbox[state[i]];
 
-    for (int r = ECBSA_ROUNDS-1; r >= 0; --r) {
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int r = ECBSA_ROUNDS - 1; r >= 0; r--) {
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] ^= round_keys[r][i];
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] = inv_sbox[state[i]];
     }
     memcpy(out, state, ECBSA_BLOCK_SIZE);
+}
+
+void compute_d_from_Sx(const Point* S, const mpz_t p, mpz_t d) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    char* x_str = mpz_get_str(NULL, 10, S->x);
+    SHA256((unsigned char*)x_str, strlen(x_str), hash);
+    free(x_str);
+    mpz_import(d, SHA256_DIGEST_LENGTH, 1, 1, 0, 0, hash);
+    mpz_mod(d, d, p);
 }

@@ -24,5 +24,5 @@ void ecbsa_encrypt(ECC* ecc, const mpz_t d, const uint8_t sbox[256],
 void ecbsa_decrypt(ECC* ecc, const mpz_t d, const uint8_t sbox[256],
                    const uint8_t* ciphertext, size_t ciphertext_len,
                    uint8_t* recovered, size_t* recovered_len);
-
+void compute_d_from_Sx(const Point* S, const mpz_t p, mpz_t d);
 #endif // ECBSA_H
