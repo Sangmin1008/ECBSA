@@ -6,12 +6,12 @@
 #include "ecc.h"
 
 #define ECBSA_BLOCK_SIZE 16
-#define ECBSA_ROUNDS 4
+#define ECBSA_ROUNDS 12
 
 void add_padding(uint8_t* data, size_t len, size_t block_size);
 void remove_padding(uint8_t* data, size_t* len);
 
-void ecbsa_generate_sbox(ECC* ecc, uint8_t sbox[256]);
+void ecbsa_generate_sbox(const Point* S, uint8_t sbox[256]);
 void ecbsa_generate_inv_sbox(const uint8_t sbox[256], uint8_t inv_sbox[256]);
 void ecbsa_key_schedule(ECC* ecc, const mpz_t d, uint8_t round_keys[ECBSA_ROUNDS+1][ECBSA_BLOCK_SIZE]);
 

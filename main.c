@@ -87,8 +87,8 @@ int main() {
 
     // Generate S-box
     uint8_t sbox[256];
-    ecbsa_generate_sbox(ecc, sbox);
-    printf("S-box generated\n");
+    ecbsa_generate_sbox(&S_receiver, sbox);
+    printf("S-box generated\n\n");
 
     // Encryption (Sender)
     const char* msg = "Hello, World!";

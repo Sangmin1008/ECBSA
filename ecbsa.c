@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <gmp.h>
 #include <openssl/sha.h>
+#include <openssl/rand.h>
 #include "ecbsa.h"
 
 void add_padding(uint8_t* data, size_t len, size_t block_size) {
@@ -17,36 +17,27 @@ void remove_padding(uint8_t* data, size_t* len) {
     *len -= pad_value;
 }
 
-void ecbsa_generate_sbox(ECC* ecc, uint8_t sbox[256]) {
-    gmp_randstate_t state;
-    gmp_randinit_default(state);
-    gmp_randseed_ui(state, time(NULL));
-
-    mpz_t k;
-    mpz_init(k);
-    mpz_urandomm(k, state, ecc->curve->p);
-
-    Point P = elliptic_curve_scalar_multiply(ecc->curve, &ecc->G, k);
-    char* x_str = mpz_get_str(NULL, 10, P.x);
-    unsigned long seed = 0;
-    for (int i = 0; x_str[i] != '\0'; ++i) {
-        seed = (seed * 31 + x_str[i]) % ULONG_MAX;
-    }
-    free(x_str);
-    srand(seed);
-
+void ecbsa_generate_sbox(const Point* S, uint8_t sbox[256]) {
     for (int i = 0; i < 256; i++) sbox[i] = i;
+
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    char* x_str = mpz_get_str(NULL, 10, S->x);
+    SHA256((unsigned char*)x_str, strlen(x_str), hash);
+    free(x_str);
+
+    unsigned char buf[4];
     for (int i = 255; i > 0; i--) {
-        int j = rand() % (i + 1);
+        RAND_bytes(buf, sizeof(buf));
+        int j = ((unsigned int)(buf[0] ^ hash[i % SHA256_DIGEST_LENGTH]) << 24 |
+                 (buf[1] ^ hash[(i + 1) % SHA256_DIGEST_LENGTH]) << 16 |
+                 (buf[2] ^ hash[(i + 2) % SHA256_DIGEST_LENGTH]) << 8 |
+                 (buf[3] ^ hash[(i + 3) % SHA256_DIGEST_LENGTH])) % (i + 1);
         uint8_t temp = sbox[i];
         sbox[i] = sbox[j];
         sbox[j] = temp;
     }
-
-    point_free(&P);
-    mpz_clear(k);
-    gmp_randclear(state);
 }
+
 
 void ecbsa_generate_inv_sbox(const uint8_t sbox[256], uint8_t inv_sbox[256]) {
     for (int i = 0; i < 256; i++) inv_sbox[i] = 0;
@@ -70,6 +61,60 @@ void ecbsa_key_schedule(ECC* ecc, const mpz_t d, uint8_t round_keys[ECBSA_ROUNDS
         mpz_clear(tmp);
     }
     mpz_clear(dr);
+}
+
+void shift_rows(uint8_t state[ECBSA_BLOCK_SIZE]) {
+    uint8_t temp[ECBSA_BLOCK_SIZE];
+    memcpy(temp, state, ECBSA_BLOCK_SIZE);
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            state[i * 4 + j] = temp[i * 4 + ((j + i) % 4)];
+        }
+    }
+}
+
+static uint8_t gf_mult(uint8_t a, uint8_t b) {
+    uint8_t p = 0;
+    for (int i = 0; i < 8; i++) {
+        if (b & 1) p ^= a;
+        uint8_t hi_bit = a & 0x80;
+        a <<= 1;
+        if (hi_bit) a ^= 0x1B;
+        b >>= 1;
+    }
+    return p;
+}
+
+void mix_columns(uint8_t state[ECBSA_BLOCK_SIZE]) {
+    uint8_t temp[4];
+    for (int i = 0; i < 4; i++) {
+        temp[0] = gf_mult(state[i * 4], 2) ^ gf_mult(state[i * 4 + 1], 3) ^ state[i * 4 + 2] ^ state[i * 4 + 3];
+        temp[1] = state[i * 4] ^ gf_mult(state[i * 4 + 1], 2) ^ gf_mult(state[i * 4 + 2], 3) ^ state[i * 4 + 3];
+        temp[2] = state[i * 4] ^ state[i * 4 + 1] ^ gf_mult(state[i * 4 + 2], 2) ^ gf_mult(state[i * 4 + 3], 3);
+        temp[3] = gf_mult(state[i * 4], 3) ^ state[i * 4 + 1] ^ state[i * 4 + 2] ^ gf_mult(state[i * 4 + 3], 2);
+        for (int j = 0; j < 4; j++) state[i * 4 + j] = temp[j];
+    }
+}
+
+void inv_mix_columns(uint8_t state[ECBSA_BLOCK_SIZE]) {
+    uint8_t temp[4];
+    for (int i = 0; i < 4; i++) {
+        temp[0] = gf_mult(state[i * 4], 0x0E) ^ gf_mult(state[i * 4 + 1], 0x0B) ^ gf_mult(state[i * 4 + 2], 0x0D) ^ gf_mult(state[i * 4 + 3], 0x09);
+        temp[1] = gf_mult(state[i * 4], 0x09) ^ gf_mult(state[i * 4 + 1], 0x0E) ^ gf_mult(state[i * 4 + 2], 0x0B) ^ gf_mult(state[i * 4 + 3], 0x0D);
+        temp[2] = gf_mult(state[i * 4], 0x0D) ^ gf_mult(state[i * 4 + 1], 0x09) ^ gf_mult(state[i * 4 + 2], 0x0E) ^ gf_mult(state[i * 4 + 3], 0x0B);
+        temp[3] = gf_mult(state[i * 4], 0x0B) ^ gf_mult(state[i * 4 + 1], 0x0D) ^ gf_mult(state[i * 4 + 2], 0x09) ^ gf_mult(state[i * 4 + 3], 0x0E);
+        for (int j = 0; j < 4; j++) state[i * 4 + j] = temp[j];
+    }
+}
+
+void inv_shift_rows(uint8_t state[ECBSA_BLOCK_SIZE]) {
+    uint8_t temp[ECBSA_BLOCK_SIZE];
+    memcpy(temp, state, ECBSA_BLOCK_SIZE);
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            state[i * 4 + j] = temp[i * 4 + ((j - i + 4) % 4)];
+        }
+    }
 }
 
 void ecbsa_encrypt(ECC* ecc, const mpz_t d, const uint8_t sbox[256],
@@ -102,11 +147,15 @@ void ecbsa_encrypt_block(ECC* ecc, const mpz_t d,
     for (int r = 0; r < ECBSA_ROUNDS; r++) {
         for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] = sbox[state[i]];
+        shift_rows(state);
+        if (r < ECBSA_ROUNDS - 1)
+            mix_columns(state);
         for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] ^= round_keys[r][i];
     }
     for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] = sbox[state[i]];
+    shift_rows(state);
     for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] ^= round_keys[ECBSA_ROUNDS][i];
 
@@ -140,15 +189,20 @@ void ecbsa_decrypt_block(ECC* ecc, const mpz_t d,
 
     for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] ^= round_keys[ECBSA_ROUNDS][i];
+    inv_shift_rows(state);
     for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] = inv_sbox[state[i]];
 
     for (int r = ECBSA_ROUNDS - 1; r >= 0; r--) {
         for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] ^= round_keys[r][i];
+        if (r < ECBSA_ROUNDS - 1)
+            inv_mix_columns(state);
+        inv_shift_rows(state);
         for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] = inv_sbox[state[i]];
     }
+
     memcpy(out, state, ECBSA_BLOCK_SIZE);
 }
 
