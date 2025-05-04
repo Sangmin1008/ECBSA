@@ -19,5 +19,10 @@ ECBSA는 타원 곡선 기반의 키 공유와 동적 S-box를 결합한 블록 
 다음 명령어로 실행 파일을 컴파일할 수 있습니다:
 
 ```bash
-gcc -o ecbsa main.c ecbsa.c -lgmp -lcrypto
+gcc *.c -o ECBSA -lgmp -lcrypto
+```
+
+## ▶️ 실행 예시
+```bash
+./ECBSA
 ```
