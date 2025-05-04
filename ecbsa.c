@@ -93,17 +93,17 @@ void ecbsa_encrypt_block(ECC* ecc, const mpz_t d,
     mpz_init(dr);
 
     for (int r = 0; r < ECBSA_ROUNDS; ++r) {
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] = sbox[state[i]];
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] ^= round_keys[r][i];
         mpz_add_ui(dr, d, r);
         mpz_mod(dr, dr, ecc->curve->p);
         ecbsa_mix_round(ecc, dr, state);
     }
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] = sbox[state[i]];
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] ^= round_keys[ECBSA_ROUNDS][i];
 
     memcpy(out, state, ECBSA_BLOCK_SIZE);
@@ -138,19 +138,19 @@ void ecbsa_decrypt_block(ECC* ecc, const mpz_t d,
     mpz_t dr;
     mpz_init(dr);
 
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] ^= round_keys[ECBSA_ROUNDS][i];
-    for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+    for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
         state[i] = inv_sbox[state[i]];
 
-    for (int r = ECBSA_ROUNDS - 1; r >= 0; --r) {
+    for (int r = ECBSA_ROUNDS - 1; r >= 0; r--) {
         mpz_add_ui(dr, d, r);
         mpz_mod(dr, dr, ecc->curve->p);
         ecbsa_mix_round(ecc, dr, state);
 
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] ^= round_keys[r][i];
-        for (int i = 0; i < ECBSA_BLOCK_SIZE; ++i)
+        for (int i = 0; i < ECBSA_BLOCK_SIZE; i++)
             state[i] = inv_sbox[state[i]];
     }
 
